@@ -1,0 +1,74 @@
+package com.misaka
+
+import com.asyncapi.kotlinasyncapi.context.service.AsyncApiExtension
+import com.asyncapi.kotlinasyncapi.ktor.AsyncApiPlugin
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import com.mongodb.kotlin.client.coroutine.MongoClient
+import com.ucasoft.ktor.simpleCache.SimpleCache
+import com.ucasoft.ktor.simpleCache.cacheOutput
+import com.ucasoft.ktor.simpleMemoryCache.*
+import dev.inmo.krontab.builder.*
+import io.github.flaxoos.ktor.server.plugins.ratelimiter.*
+import io.github.flaxoos.ktor.server.plugins.ratelimiter.implementations.*
+import io.github.flaxoos.ktor.server.plugins.taskscheduling.*
+import io.github.flaxoos.ktor.server.plugins.taskscheduling.managers.lock.database.*
+import io.github.flaxoos.ktor.server.plugins.taskscheduling.managers.lock.redis.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
+import io.ktor.server.plugins.calllogging.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.sse.*
+import io.ktor.sse.*
+import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.dsl.module
+import org.koin.ktor.plugin.Koin
+import org.koin.logger.slf4jLogger
+import org.slf4j.event.*
+
+fun Application.configureHTTP() {
+    install(AsyncApiPlugin) {
+        extension = AsyncApiExtension.builder {
+            info {
+                title("Sample API")
+                version("1.0.0")
+            }
+        }
+    }
+    install(CORS) {
+        allowMethod(HttpMethod.Options)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
+        allowMethod(HttpMethod.Patch)
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader("MyCustomHeader")
+        anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
+    }
+    install(SimpleCache) {
+        memoryCache {
+            invalidateAt = 10.seconds
+        }
+    }
+    routing {
+        cacheOutput(2.seconds) {
+            get("/short") {
+                call.respond(Random.nextInt().toString())
+            }
+        }
+        cacheOutput {
+            get("/default") {
+                call.respond(Random.nextInt().toString())
+            }
+        }
+    }
+}
